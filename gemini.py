@@ -232,7 +232,7 @@ def extract_from_video(
         "-c:a",
         "libopus",  # Audio codec: Opus
         "-b:a",
-        "192k",  # Audio bitrate: 192kbps
+        "64k",  # Audio bitrate: 64kbps, gemini can only handle 16kbps. Extra bitrate for the future
         "-y",  # Overwrite output file if it exists
         str(audio_output_path),  # Output audio file
     ]

@@ -22,7 +22,7 @@ A Python-based command-line tool to manage, index, and query lecture materials (
 1.  **Python 3.7+**: Download from [python.org](https://www.python.org/downloads/).
 2.  **FFmpeg**: Required for video and audio processing.
     *   Download from [ffmpeg.org](https://ffmpeg.org/download.html).
-    *   Ensure `ffmpeg` (or the path specified in `FFMPEG_PATH` in the script) is accessible in your system's PATH.
+    *   Ensure `ffmpeg` is accessible in your system's PATH. Alternatively, if FFmpeg is installed but not in your PATH, you can specify its full path in the `FFMPEG_PATH` variable within the `gemini.py` script (see Configuration section).
 3.  **Google AI Python SDK**:
     ```bash
     pip install -r requirements.txt
@@ -47,9 +47,8 @@ A Python-based command-line tool to manage, index, and query lecture materials (
     ```bash
     python -m venv venv
     source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install google-generativeai
+    pip install -r requirements.txt
     ```
-    *(Consider creating a `requirements.txt` file with `google-generativeai` for easier installation).*
 
 ## Configuration (Optional)
 
@@ -60,13 +59,14 @@ The script uses several constants at the top that you can modify:
 *   `API_RETRY_DELAY = 5`: Seconds to wait before retrying a failed API call.
 *   `MAX_API_RETRIES = 3`: Maximum number of API call retries.
 *   `GEMINI_MODEL_NAME`, `GEMINI_TEXT_MODEL_NAME`: Specific Gemini models to use. You might update these as new models are released.
-*   `FFMPEG_PATH = "ffmpeg"`: Path to the FFmpeg executable. Change if FFmpeg is not in your system PATH or has a different name.
-*   `KNOWN_DOC_EXTENSIONS`: List of extensions automatically treated as documents (Can be updated to the api as is).
+    *   `FFMPEG_PATH = "ffmpeg"`: Path to the FFmpeg executable. If `ffmpeg` is not in your system's PATH, update this constant to the full path of the FFmpeg executable (e.g., `/usr/local/bin/ffmpeg` or `C:\ffmpeg\bin\ffmpeg.exe`).
+*   `KNOWN_DOC_EXTENSIONS`: List of extensions automatically treated as documents (This list can be updated directly in the script if you need to support more document types that should be treated similarly to PDFs by default).
 
 ## Usage
 ### 1. Adding Content
 
 Use the `add` command to ingest and index files. The script automatically creates a `lectures/` directory (and `lectures/Archive/`) to store processed and original media files.
+In the examples below, replace placeholders like `course_notes.pdf` or `lecture_01.mp4` with the actual paths to your files.
 
 *   **Add PDF files (auto-detected):**
     ```bash
@@ -130,7 +130,9 @@ The script will:
 1.  **Ingestion & Indexing (`add`):**
     *   When you add a file, it's assigned a unique UUID.
     *   **Media Preprocessing**:
-        *   Videos are split into audio (Opus) and a 1fps video stream (MP4). This reduces the data sent to Gemini while retaining key visual and auditory information.
+        *   **Videos**: Are processed in two ways:
+            *   Audio is extracted and converted to Opus format.
+            *   A downsampled video stream is created (1 frame per second, 720p). This 1fps stream is then sped up 30x to create a compact MP4 file. This process significantly reduces the amount of data for analysis by Gemini, making it more efficient and helping to stay within token limits, while still providing a visual context when reviewing content.
         *   Audio files are converted to Opus.
         *   Original media files are moved to an `Archive` subfolder within `VIDEO_BASE_DIR`.
         *   PDFs, images, and text files are copied as-is to `VIDEO_BASE_DIR`.
@@ -140,7 +142,7 @@ The script will:
 2.  **Querying (`query`):**
     *   **Step 1: Relevance Identification**:
         *   Your natural language query is sent to Gemini along with all the `index_summary` fields from `lecture_data.json`.
-        *   Gemini returns a list of UUIDs it deems most relevant to your query based on these summaries.
+        *   Gemini returns a list of numerical UUIDs (e.g., 1, 5, 12) it deems most relevant to your query based on these summaries.
     *   **Step 2: Content-Specific Answering**:
         *   For each relevant UUID, the script retrieves the actual processed file(s) (e.g., the Opus audio and downsampled MP4 for a video).
         *   These files are uploaded to Gemini along with your original query.
@@ -176,3 +178,47 @@ your-repo-name/
 *   **Processing Time**: Indexing large media files can be time-consuming due to uploading and AI processing.
 *   **No Deletion/Update Feature**: Currently, there's no built-in command to remove or re-index specific entries. This would require manual editing of `lecture_data.json` and file system cleanup, or an extension to the script.
 *   **FFmpeg Dependency**: Relies on an external FFmpeg installation.
+
+## Troubleshooting
+
+### FFmpeg not found / `ffmpeg` command not recognized
+*   **Solution:**
+    *   Ensure FFmpeg is correctly installed on your system. You can download it from [ffmpeg.org](https://ffmpeg.org/download.html).
+    *   Verify that the directory containing `ffmpeg` (and `ffprobe`) is included in your system's PATH environment variable.
+    *   If FFmpeg is installed but not in your PATH, you can set the `FFMPEG_PATH` constant in the `gemini.py` script to the full path of the `ffmpeg` executable (e.g., `/usr/local/bin/ffmpeg` or `C:\ffmpeg\bin\ffmpeg.exe`).
+
+### Google AI API Key not set or invalid / Authentication errors
+*   **Solution:**
+    *   Make sure you have obtained a Google AI API Key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+    *   Confirm that the `GOOGLE_API_KEY` environment variable is correctly set in your terminal session or system environment variables. For example:
+        *   Linux/macOS: `export GOOGLE_API_KEY="YOUR_API_KEY"`
+        *   Windows (Command Prompt): `set GOOGLE_API_KEY=YOUR_API_KEY`
+        *   Windows (PowerShell): `$env:GOOGLE_API_KEY="YOUR_API_KEY"`
+    *   Ensure there are no typos in the API key and that it has the necessary permissions/is enabled.
+
+### `pip install -r requirements.txt` fails
+*   **Solution:**
+    *   Ensure you have Python 3.7+ installed and that `pip` is up to date (`python -m pip install --upgrade pip`).
+    *   If you are using a virtual environment, make sure it is activated.
+    *   Check your internet connection, as pip needs to download packages.
+    *   If you encounter errors related to specific packages, try searching for solutions online for that particular package error.
+
+## Contributing
+
+Contributions are welcome! If you have suggestions for improvements, new features, or find any bugs, please feel free to:
+
+1.  **Report Bugs:** Open an issue in the GitHub repository, providing as much detail as possible.
+2.  **Suggest Enhancements:** Open an issue to discuss new features or improvements.
+3.  **Submit Pull Requests:**
+    *   Fork the repository.
+    *   Create a new branch for your feature or bug fix.
+    *   Make your changes.
+    *   Ensure your code follows the project's style (if any defined) and is well-commented.
+    *   Write or update tests if applicable.
+    *   Submit a pull request with a clear description of your changes.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
+*(Note: If a `LICENSE` file does not exist, please choose an appropriate open-source license and add it to the repository. For example, you can create a file named `LICENSE` and add the MIT License text to it.)*
